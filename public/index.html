@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slidemaker</title>
+<style>
+  :root {
+    --bg: #f5f7fb; --card: #ffffff; --ink: #0f172a; --muted: #64748b; --line: #e2e8f0;
+    --brand: #4f46e5; --brand-dark: #4338ca; --danger: #b91c1c; --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0b1020; --card: #131a2e; --ink: #e5e9f5; --muted: #94a3b8; --line: #243049; --brand: #818cf8; --brand-dark: #6366f1; --danger: #f87171; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 10px; padding: 14px 24px; border-bottom: 1px solid var(--line); background: var(--card); }
+  header .logo { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #4f46e5, #06b6d4); }
+  header h1 { font-size: 18px; margin: 0; }
+  header span { color: var(--muted); font-size: 13px; }
+
+  /* Clerk: sign-in box (centered) when signed out, small user button (top right) when signed in */
+  #auth-root { display: flex; justify-content: center; padding: 28px 24px; color: var(--muted); font-size: 14px; }
+  body[data-auth="in"] #auth-root { justify-content: flex-end; padding: 10px 24px 0; max-width: 1400px; margin: 0 auto; }
+  /* the app stays hidden until Clerk confirms you are signed in */
+  body:not([data-auth="in"]) main { display: none; }
+
+  main { display: grid; grid-template-columns: 360px 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel, .preview { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  label.t { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+  label.t:first-child { margin-top: 0; }
+  textarea, select { width: 100%; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 10px; padding: 10px 12px; font: inherit; }
+  textarea { resize: vertical; min-height: 110px; }
+  textarea:focus, select:focus { outline: 2px solid var(--brand); outline-offset: 0; }
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .sw { border: 2px solid var(--line); border-radius: 10px; padding: 6px; background: transparent; cursor: pointer; text-align: center; color: var(--ink); font: inherit; font-size: 12px; }
+  .sw .chip { height: 28px; border-radius: 6px; margin-bottom: 4px; display: flex; overflow: hidden; }
+  .sw .chip i { flex: 1; }
+  .sw[aria-pressed="true"] { border-color: var(--brand); }
+  button.primary { width: 100%; margin-top: 16px; background: var(--brand); color: #fff; border: 0; border-radius: 10px; padding: 12px; font: inherit; font-weight: 600; cursor: pointer; }
+  button.primary:hover { background: var(--brand-dark); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .btn { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  .btn:hover:not(:disabled) { border-color: var(--brand); }
+  details { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+  details summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+  details textarea { min-height: 220px; margin-top: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  details .btn { margin-top: 8px; }
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .toolbar .title { font-weight: 600; flex: 1; min-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu { position: relative; }
+  .menu .pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; min-width: 230px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 6px; display: none; box-shadow: 0 12px 30px rgba(0,0,0,.18); }
+  .menu.open .pop { display: block; }
+  .pop button { display: block; width: 100%; text-align: left; background: transparent; border: 0; color: var(--ink); padding: 9px 12px; border-radius: 8px; font: inherit; cursor: pointer; }
+  .pop button:hover { background: var(--bg); }
+  .pop small { display: block; color: var(--muted); padding: 6px 12px 4px; font-size: 12px; line-height: 1.4; }
+  .stage { position: relative; aspect-ratio: 16 / 9; width: 100%; border-radius: 10px; overflow: hidden; background: #0b1220; }
+  iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #cbd5e1; text-align: center; padding: 20px; font-size: 14px; }
+  .spinner { width: 34px; height: 34px; border: 3px solid #334155; border-top-color: #818cf8; border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { margin-top: 12px; color: var(--danger); font-size: 14px; display: none; white-space: pre-wrap; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  #toast.show { opacity: 1; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"></div>
+  <h1>Slidemaker</h1>
+  <span>AI presentations you can export and share</span>
+</header>
+
+<!-- Clerk mounts the sign-in box or the user button here -->
+<div id="auth-root">Loading sign-in...</div>
+
+<main>
+  <aside class="panel">
+    <label class="t" for="prompt">What is the presentation about?</label>
+    <textarea id="prompt" placeholder="e.g. How solar panels work, for school students"></textarea>
+
+    <label class="t" for="count">Number of slides</label>
+    <select id="count">
+      <option value="5">5 slides</option>
+      <option value="7" selected>7 slides</option>
+      <option value="10">10 slides</option>
+      <option value="12">12 slides</option>
+    </select>
+
+    <label class="t">Theme</label>
+    <div class="swatches" id="themes"></div>
+
+    <button class="primary" id="gen">Generate presentation</button>
+    <div class="error" id="error" role="alert"></div>
+
+    <details id="editor" hidden>
+      <summary>Edit slides (markdown)</summary>
+      <textarea id="md" spellcheck="false"></textarea>
+      <button class="btn" id="apply">Apply changes</button>
+    </details>
+  </aside>
+
+  <section class="preview">
+    <div class="toolbar">
+      <div class="title" id="deckTitle">No presentation yet</div>
+
+      <div class="menu" id="exportMenu">
+        <button class="btn" id="exportBtn" disabled>Export &#9662;</button>
+        <div class="pop">
+          <button data-act="pptx">PowerPoint (.pptx)</button>
+          <button data-act="pdf">PDF (print dialog)</button>
+          <button data-act="html">HTML file</button>
+        </div>
+      </div>
+
+      <div class="menu" id="shareMenu">
+        <button class="btn" id="shareBtn" disabled>Share &#9662;</button>
+        <div class="pop">
+          <button data-act="copy">Copy link</button>
+          <button data-act="whatsapp">WhatsApp</button>
+          <button data-act="email">Email</button>
+          <button data-act="native" id="nativeShare" hidden>More options...</button>
+          <small id="shareHint"></small>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <iframe id="preview" title="Presentation preview" allow="fullscreen"></iframe>
+      <div class="overlay" id="empty">Your slides will appear here.<br>Use the arrow keys or the buttons below the slide to move through them.</div>
+      <div class="overlay" id="loading" hidden><div class="spinner"></div><div>Writing your slides... this can take up to a minute.</div></div>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<!-- Defines apiFetch() and downloadFile(); must load before the app script below -->
+<script src="/clerk-auth.js"></script>
+
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { deck: null, theme: 'ocean', dirty: false, busy: false };
+
+  // ---------- helpers ----------
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+
+  function showError(msg) {
+    var e = $('error');
+    e.textContent = msg || '';
+    e.style.display = msg ? 'block' : 'none';
+  }
+
+  // apiFetch adds the Clerk session token to every request
+  async function api(method, url, body) {
+    var res = await apiFetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    var data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (res.status === 401) throw new Error('Please sign in to continue.');
+    if (!res.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+    return data;
+  }
+
+  function setLoading(on) {
+    state.busy = on;
+    $('loading').hidden = !on;
+    $('gen').disabled = on;
+    $('gen').textContent = on ? 'Generating...' : 'Generate presentation';
+  }
+
+  function applyDeck(deck) {
+    state.deck = deck;
+    state.theme = deck.theme;
+    state.dirty = false;
+    $('preview').srcdoc = deck.html;
+    $('empty').hidden = true;
+    $('deckTitle').textContent = deck.title + ' (' + deck.slideCount + ' slides)';
+    $('md').value = deck.markdown;
+    $('editor').hidden = false;
+    $('exportBtn').disabled = false;
+    $('shareBtn').disabled = false;
+    markTheme(deck.theme);
+    updateShareHint();
+  }
+
+  // clear the current deck (used when the user signs out)
+  function resetDeck() {
+    state.deck = null;
+    state.dirty = false;
+    $('preview').srcdoc = '';
+    $('empty').hidden = false;
+    $('deckTitle').textContent = 'No presentation yet';
+    $('md').value = '';
+    $('editor').hidden = true;
+    $('exportBtn').disabled = true;
+    $('shareBtn').disabled = true;
+    showError('');
+  }
+
+  // ---------- themes ----------
+  function markTheme(key) {
+    document.querySelectorAll('.sw').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.key === key));
+    });
+  }
+
+  async function loadThemes() {
+    var data = await api('GET', '/api/themes');
+    state.theme = data.default;
+    var box = $('themes');
+    data.themes.forEach(function (t) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sw';
+      b.dataset.key = t.key;
+      var chip = document.createElement('div');
+      chip.className = 'chip';
+      ['#' + t.primary, '#' + t.accent, '#' + t.bg].forEach(function (c) {
+        var i = document.createElement('i');
+        i.style.background = c;
+        chip.appendChild(i);
+      });
+      var label = document.createElement('span');
+      label.textContent = t.name;
+      b.appendChild(chip);
+      b.appendChild(label);
+      b.onclick = function () { changeTheme(t.key); };
+      box.appendChild(b);
+    });
+    markTheme(state.theme);
+  }
+
+  async function changeTheme(key) {
+    state.theme = key;
+    markTheme(key);
+    if (!state.deck) return;
+    try {
+      applyDeck(await api('PUT', '/api/decks/' + state.deck.id, { theme: key, markdown: $('md').value }));
+    } catch (e) { showError(e.message); }
+  }
+
+  // ---------- actions ----------
+  async function generate() {
+    var prompt = $('prompt').value.trim();
+    if (!prompt) { showError('Please describe your presentation first.'); return; }
+    showError('');
+    setLoading(true);
+    try {
+      applyDeck(await api('POST', '/api/generate', {
+        prompt: prompt,
+        slides: Number($('count').value),
+        theme: state.theme
+      }));
+    } catch (e) {
+      showError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function applyEdits() {
+    if (!state.deck) return false;
+    try {
+      showError('');
+      applyDeck(await api('PUT', '/api/decks/' + state.deck.id, { markdown: $('md').value, theme: state.theme }));
+      return true;
+    } catch (e) {
+      showError(e.message);
+      return false;
+    }
+  }
+
+  // save any unsaved markdown edits before exporting or sharing
+  async function ensureSaved() {
+    if (!state.deck) return false;
+    if (state.dirty) return applyEdits();
+    return true;
+  }
+
+  function absoluteShareUrl() {
+    return location.origin + state.deck.shareUrl;
+  }
+
+  function updateShareHint() {
+    if (!state.deck) return;
+    var local = ['localhost', '127.0.0.1', '[::1]'].indexOf(location.hostname) !== -1;
+    $('shareHint').textContent = local
+      ? 'This link only works on this computer while the server is running. To share it with others, expose the server with a tunnel (for example ngrok or Cloudflare Tunnel) or deploy it, then open the app from that address.'
+      : 'Anyone with this link can view the presentation.';
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    toast('Link copied');
+  }
+
+  async function exportAction(act) {
+    if (!(await ensureSaved())) return;
+    var id = state.deck.id;
+    try {
+      // downloadFile sends the Clerk token; a plain link or location.href cannot
+      if (act === 'pptx') await downloadFile('/api/decks/' + id + '/export.pptx', 'presentation.pptx');
+      if (act === 'html') await downloadFile('/api/decks/' + id + '/export.html', 'presentation.html');
+    } catch (e) {
+      showError(e.message);
+      return;
+    }
+    if (act === 'pdf') {
+      // the share page is public, so it opens without a token
+      window.open('/d/' + id + '?print=1', '_blank');
+      toast('In the print dialog, choose "Save as PDF"');
+    }
+  }
+
+  async function shareAction(act) {
+    if (!(await ensureSaved())) return;
+    var url = absoluteShareUrl();
+    var title = state.deck.title;
+    if (act === 'copy') await copyText(url);
+    if (act === 'whatsapp') window.open('https://wa.me/?text=' + encodeURIComponent(title + ' ' + url), '_blank');
+    if (act === 'email') location.href = 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent('View my presentation: ' + url);
+    if (act === 'native') {
+      try { await navigator.share({ title: title, url: url }); } catch (e) {}
+    }
+  }
+
+  // ---------- menus ----------
+  function wireMenu(menuId, handler) {
+    var menu = $(menuId);
+    menu.querySelector('.btn').onclick = function (e) {
+      e.stopPropagation();
+      var wasOpen = menu.classList.contains('open');
+      document.querySelectorAll('.menu').forEach(function (m) { m.classList.remove('open'); });
+      if (!wasOpen) menu.classList.add('open');
+    };
+    menu.querySelectorAll('.pop button').forEach(function (b) {
+      b.onclick = function () { menu.classList.remove('open'); handler(b.dataset.act); };
+    });
+  }
+  document.addEventListener('click', function () {
+    document.querySelectorAll('.menu').forEach(function (m) { m.classList.remove('open'); });
+  });
+
+  // ---------- init ----------
+  $('gen').onclick = generate;
+  $('apply').onclick = applyEdits;
+  $('md').addEventListener('input', function () { state.dirty = true; });
+  $('prompt').addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate();
+  });
+  if (navigator.share) $('nativeShare').hidden = false;
+  wireMenu('exportMenu', exportAction);
+  wireMenu('shareMenu', shareAction);
+  loadThemes().catch(function (e) { showError(e.message); });
+
+  // fired by clerk-auth.js on sign in / sign out
+  window.addEventListener('auth-changed', function (e) {
+    if (!e.detail.signedIn) resetDeck();
+  });
+</script>
+</body>
+</html>

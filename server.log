@@ -1,0 +1,37 @@
+DATABASE_URL: postgresql://neondb_owner:npg_ntB2gXMA7TOx@ep-wandering-glitter-bb22gruz-pooler.c-15.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+(node:4904) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ppt_slidemaker running at http://localhost:3000
+Model: nvidia/nemotron-3-ultra-550b-a55b:free
+ppt-master skill found at: C:\Users\vamsi\Desktop\ppt_slidemaker\ppt-master\skills\ppt-master
+Connected to Neon PostgreSQL database
+Database tables initialized
+Unable to parse "arn://aws:s3:us-east-1:541195182231:accesspoint/wrapperend" as a whatwg URL.
+EndpointError: Custom endpoint `arn://aws:s3:us-east-1:541195182231:accesspoint/wrapperend` was not a valid URI
+    at decideEndpoint (C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@smithy\core\dist-cjs\submodules\endpoints\index.js:718:19)
+    at C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@aws-sdk\client-s3\dist-cjs\index.js:801:44
+    at EndpointCache.get (C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@smithy\core\dist-cjs\submodules\endpoints\index.js:348:32)
+    at Object.defaultEndpointResolver [as endpointProvider] (C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@aws-sdk\client-s3\dist-cjs\index.js:801:18)
+    at C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@smithy\core\dist-cjs\submodules\endpoints\index.js:168:39
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async getSignedUrl (C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@aws-sdk\s3-request-presigner\dist-cjs\index.js:70:28)
+    at async getPutObjectUrl (C:\Users\vamsi\Desktop\ppt_slidemaker\s3.js:29:10)
+    at async C:\Users\vamsi\Desktop\ppt_slidemaker\server.js:285:17
+Unable to parse "arn://aws:s3:us-east-1:541195182231:accesspoint/wrapperend" as a whatwg URL.
+EndpointError: Custom endpoint `arn://aws:s3:us-east-1:541195182231:accesspoint/wrapperend` was not a valid URI
+    at decideEndpoint (C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@smithy\core\dist-cjs\submodules\endpoints\index.js:718:19)
+    at C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@aws-sdk\client-s3\dist-cjs\index.js:801:44
+    at EndpointCache.get (C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@smithy\core\dist-cjs\submodules\endpoints\index.js:348:32)
+    at Object.defaultEndpointResolver [as endpointProvider] (C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@aws-sdk\client-s3\dist-cjs\index.js:801:18)
+    at C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@smithy\core\dist-cjs\submodules\endpoints\index.js:168:39
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async getSignedUrl (C:\Users\vamsi\Desktop\ppt_slidemaker\node_modules\@aws-sdk\s3-request-presigner\dist-cjs\index.js:70:28)
+    at async getPutObjectUrl (C:\Users\vamsi\Desktop\ppt_slidemaker\s3.js:29:10)
+    at async C:\Users\vamsi\Desktop\ppt_slidemaker\server.js:285:17

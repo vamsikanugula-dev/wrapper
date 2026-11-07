@@ -1,0 +1,31 @@
+model_list:
+  - model_name: deepseek-v3
+    litellm_params:
+      model: openai/deepseek.v3.2
+      api_base: https://bedrock-mantle.us-east-1.api.aws/v1
+      api_key: os.environ/BEDROCK_API_KEY
+
+  - model_name: nemotron
+    litellm_params:
+      model: openai/nvidia.nemotron-super-3-120b
+      api_base: https://bedrock-mantle.us-east-1.api.aws/v1
+      api_key: os.environ/BEDROCK_API_KEY
+
+  - model_name: gpt-oss-120b
+    litellm_params:
+      model: openai/openai.gpt-oss-120b
+      api_base: https://bedrock-mantle.us-east-1.api.aws/v1
+      api_key: os.environ/BEDROCK_API_KEY
+
+  - model_name: kimi-k2.5
+    litellm_params:
+      model: openai/moonshotai.kimi-k2.5
+      api_base: https://bedrock-mantle.us-east-1.api.aws/v1
+      api_key: os.environ/BEDROCK_API_KEY
+
+litellm_settings:
+  drop_params: true
+  use_chat_completions_url_for_anthropic_messages: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
