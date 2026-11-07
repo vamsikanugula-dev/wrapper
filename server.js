@@ -12,13 +12,14 @@
  * Agent:     POST /api/generate-pptx         -> optional ppt-master agent job (see pptAgent.js)
  *            GET  /api/jobs/:id              -> agent job status
  *
+ * Runs locally with `npm start` and on Vercel (the exported app is used as the function).
+ *
  * Co-Authored-By: Claude Code <noreply@anthropic.com>
  */
 
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -34,12 +35,12 @@ const { uploadFile, deleteObject, getPutObjectUrl, getObjectUrl } = require('./s
 // ---------- config ----------
 const PORT = process.env.PORT || 3000;
 const MODEL = process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b:free';
-const DECK_DIR = path.join(__dirname, 'decks');
-fs.mkdirSync(DECK_DIR, { recursive: true });
+const ON_VERCEL = Boolean(process.env.VERCEL);
 
 if (!process.env.OPENROUTER_API_KEY) {
-  console.error('Missing OPENROUTER_API_KEY in .env file');
-  process.exit(1);
+  console.error('Missing OPENROUTER_API_KEY. Set it in .env (local) or in Vercel Environment Variables.');
+  // Locally, stop right away. On Vercel, keep running so the real error shows up per request.
+  if (!ON_VERCEL) process.exit(1);
 }
 
 const app = express();
@@ -79,16 +80,29 @@ const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch
 async function initializeDatabase() {
   const connected = await testConnection();
   if (!connected) {
-    console.error('Failed to connect to database. Exiting.');
-    process.exit(1);
+    throw new Error('Failed to connect to database');
   }
   await initDatabase();
 }
 
-const dbReady = initializeDatabase();
-dbReady.catch(e => {
-  console.error('Database init failed:', e);
-  process.exit(1);
+// Initialise lazily and share one promise. If it fails, the next request tries again,
+// so one failed connection does not break a warm Vercel instance until it is recycled.
+let dbReady = null;
+function ensureDb() {
+  if (!dbReady) {
+    dbReady = initializeDatabase().catch(e => {
+      dbReady = null;
+      throw e;
+    });
+  }
+  return dbReady;
+}
+
+// Every request waits for the database (needed on Vercel, where app.listen is not used).
+// The two config routes do not need it, so the sign-in UI can still load if the database is down.
+app.use((req, res, next) => {
+  if (req.path === '/api/config' || req.path === '/api/themes') return next();
+  ensureDb().then(() => next(), next);
 });
 
 function deckResponse(deck) {
@@ -133,6 +147,10 @@ function safeFilename(name) {
 
 // ---------- model call ----------
 async function generateSlides(prompt, count) {
+  if (!process.env.OPENROUTER_API_KEY) {
+    throw new Error('OPENROUTER_API_KEY is not configured on the server');
+  }
+
   const system =
     'You are a presentation writer. Output ONLY markdown, no commentary and no code fences. ' +
     `Write exactly ${count} slides. Each slide starts with a line "## <Slide Title>" followed by 3 to 5 bullet points, each starting with "- ". ` +
@@ -345,9 +363,13 @@ app.delete('/api/s3/delete', requireAuth, async (req, res) => {
 });
 
 // ---------- routes: optional ppt-master agent ----------
+// Local use only: it runs Python scripts and long jobs, which do not work on Vercel.
 const jobOwners = new Map(); // jobId -> userId (in memory; cleared on restart)
 
 app.post('/api/generate-pptx', rateLimit, requireAuth, (req, res) => {
+  if (ON_VERCEL) {
+    return res.status(501).json({ error: 'The ppt-master agent is not available on this deployment.' });
+  }
   const { prompt } = req.body || {};
   if (typeof prompt !== 'string' || !prompt.trim()) {
     return res.status(400).json({ error: 'Missing prompt' });
@@ -379,22 +401,28 @@ app.use((err, req, res, next) => {
 
 // ---------- start ----------
 if (require.main === module) {
-  // listen only after the database is ready, so early requests do not hit missing tables
-  dbReady.then(() => {
-    app.listen(PORT, () => {
-      console.log(`ppt_slidemaker running at http://localhost:${PORT}`);
-      console.log(`Model: ${MODEL}`);
-      if (!process.env.CLERK_PUBLISHABLE_KEY) {
-        console.warn('CLERK_PUBLISHABLE_KEY is not set: the sign-in UI cannot load.');
-      }
-      try {
-        checkSetup();
-        console.log(`ppt-master skill found at: ${SKILL_DIR}`);
-      } catch (e) {
-        console.log('(ppt-master skill folder not found. That is fine, only /api/generate-pptx needs it.)');
-      }
+  // Local run: connect to the database first, then listen.
+  ensureDb()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`ppt_slidemaker running at http://localhost:${PORT}`);
+        console.log(`Model: ${MODEL}`);
+        if (!process.env.CLERK_PUBLISHABLE_KEY) {
+          console.warn('CLERK_PUBLISHABLE_KEY is not set: the sign-in UI cannot load.');
+        }
+        try {
+          checkSetup();
+          console.log(`ppt-master skill found at: ${SKILL_DIR}`);
+        } catch (e) {
+          console.log('(ppt-master skill folder not found. That is fine, only /api/generate-pptx needs it.)');
+        }
+      });
+    })
+    .catch(e => {
+      console.error('Database init failed:', e);
+      process.exit(1);
     });
-  });
-} else {
-  module.exports = app;
 }
+
+// Always export the app: Vercel uses it as the function handler.
+module.exports = app;

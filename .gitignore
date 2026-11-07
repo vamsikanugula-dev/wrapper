@@ -6,3 +6,4 @@ decks/
 workspace/
 .env
 node_modules/
+server.log
